@@ -1,0 +1,16 @@
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+xgboost
+lightgbm
+optuna
+pillow
+torch
+torchvision
+tqdm
+python-magic
+fastapi
+uvicorn
+python-multipart
