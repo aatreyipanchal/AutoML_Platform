@@ -14,7 +14,7 @@ import os
 # Robust Path Handling
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 if ROOT_DIR not in sys.path:
-    sys.path.append(ROOT_DIR)
+    sys.path.insert(0, ROOT_DIR)
 
 REPORT_DIR = os.path.join(ROOT_DIR, "src", "reports")
 MODEL_DIR = os.path.join(ROOT_DIR, "src", "models")
