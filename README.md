@@ -1,5 +1,7 @@
 # 🤖 AutoML Platform
 
+**Live App: [automlplatform.streamlit.app](https://automlplatform.streamlit.app/)**
+
 An end-to-end Automated Machine Learning platform built with Python and Streamlit. This platform allows users to perform automated Exploratory Data Analysis (EDA) and train high-performance models for both Tabular and Computer Vision tasks with zero coding.
 
 ## 🚀 Features
