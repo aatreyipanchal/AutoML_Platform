@@ -8,6 +8,20 @@ from src.engine.pipeline import AutoMLPipeline
 from src.engine.data_loader import DataLoader
 from src.engine.eda import EDAEngine
 import glob
+import sys
+import os
+
+# Robust Path Handling
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+if ROOT_DIR not in sys.path:
+    sys.path.append(ROOT_DIR)
+
+REPORT_DIR = os.path.join(ROOT_DIR, "src", "reports")
+MODEL_DIR = os.path.join(ROOT_DIR, "src", "models")
+
+# Ensure directories exist
+os.makedirs(REPORT_DIR, exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
 # Page Config
 st.set_page_config(
@@ -90,39 +104,43 @@ def main():
             target_col = st.selectbox("Select Target Column", df.columns.tolist(), index=len(df.columns)-1)
             
             # Save uploaded file temporarily for the pipeline
-            temp_path = "tmp_uploaded_data.csv"
+            temp_path = os.path.join(ROOT_DIR, "tmp_uploaded_data.csv")
             df.to_csv(temp_path, index=False)
 
             # EDA Section
             st.divider()
             st.header("📊 Exploratory Data Analysis")
             if st.button("Run Automated EDA"):
-                with st.spinner("Analyzing data..."):
-                    eda_engine = EDAEngine()
-                    report_dir = eda_engine.analyze_tabular(df, target_col=target_col)
-                    
-                    st.success("EDA Completed!")
-                    
-                    # Display Plots
-                    st.subheader("Visualizations")
-                    
-                    # Correlation Heatmap
-                    heatmap_path = os.path.join(report_dir, "correlation_heatmap.png")
-                    if os.path.exists(heatmap_path):
-                        st.image(heatmap_path, caption="Correlation Heatmap", use_column_width=True)
-                    
-                    # Target Distribution
-                    dist_path = os.path.join(report_dir, f"{target_col}_distribution.png")
-                    if os.path.exists(dist_path):
-                        st.image(dist_path, caption=f"Distribution of {target_col}", use_column_width=True)
-                    
-                    # Boxplots
-                    st.write("### Boxplots (Outlier Detection)")
-                    boxplots = glob.glob(os.path.join(report_dir, "boxplot_*.png"))
-                    if boxplots:
-                        cols = st.columns(2)
-                        for i, bp in enumerate(boxplots):
-                            cols[i % 2].image(bp, use_column_width=True)
+                try:
+                    with st.spinner("Analyzing data..."):
+                        eda_engine = EDAEngine(report_dir=REPORT_DIR)
+                        report_dir = eda_engine.analyze_tabular(df, target_col=target_col)
+                        
+                        st.success("EDA Completed!")
+                        
+                        # Display Plots
+                        st.subheader("Visualizations")
+                        
+                        # Correlation Heatmap
+                        heatmap_path = os.path.join(REPORT_DIR, "correlation_heatmap.png")
+                        if os.path.exists(heatmap_path):
+                            st.image(heatmap_path, caption="Correlation Heatmap", use_column_width=True)
+                        
+                        # Target Distribution
+                        dist_path = os.path.join(REPORT_DIR, f"{target_col}_distribution.png")
+                        if os.path.exists(dist_path):
+                            st.image(dist_path, caption=f"Distribution of {target_col}", use_column_width=True)
+                        
+                        # Boxplots
+                        st.write("### Boxplots (Outlier Detection)")
+                        boxplots = glob.glob(os.path.join(REPORT_DIR, "boxplot_*.png"))
+                        if boxplots:
+                            cols = st.columns(2)
+                            for i, bp in enumerate(boxplots):
+                                cols[i % 2].image(bp, use_column_width=True)
+                except Exception as e:
+                    st.error("EDA Failed!")
+                    st.exception(e)
 
             # AutoML Section
             st.divider()
@@ -134,7 +152,9 @@ def main():
                             data_path=temp_path,
                             target_col=target_col,
                             task_type=task_type,
-                            sub_task=sub_task
+                            sub_task=sub_task,
+                            model_dir=MODEL_DIR,
+                            report_dir=REPORT_DIR
                         )
                         best_model, results = pipeline.run()
                         
@@ -156,12 +176,13 @@ def main():
                         st.info("Download the trained model and preprocessor for later use in production.")
                         col1, col2 = st.columns(2)
                         with col1:
-                            st_download_file("src/models/best_tabular_model.pkl", "Model (.pkl)", "best_tabular_model.pkl")
+                            st_download_file(os.path.join(MODEL_DIR, "best_tabular_model.pkl"), "Model (.pkl)", "best_tabular_model.pkl")
                         with col2:
-                            st_download_file("src/models/preprocessor.pkl", "Preprocessor (.pkl)", "preprocessor.pkl")
+                            st_download_file(os.path.join(MODEL_DIR, "preprocessor.pkl"), "Preprocessor (.pkl)", "preprocessor.pkl")
 
                 except Exception as e:
-                    st.error(f"An error occurred: {e}")
+                    st.error("AutoML Pipeline Failed!")
+                    st.exception(e)
 
     elif task_type == "cv":
         st.header("🖼️ Computer Vision")
@@ -176,15 +197,16 @@ def main():
                     with st.spinner("Running CV Pipeline..."):
                         pipeline = AutoMLPipeline(
                             data_path=dir_path,
-                            task_type="cv"
+                            task_type="cv",
+                            model_dir=MODEL_DIR,
+                            report_dir=REPORT_DIR
                         )
                         best_model, results = pipeline.run()
                         st.success("CV AutoML Finished!")
                         st.json(results)
                         
                         # Show sample images if EDA was run
-                        report_dir = "src/reports"
-                        sample_images_path = os.path.join(report_dir, "sample_images.png")
+                        sample_images_path = os.path.join(REPORT_DIR, "sample_images.png")
                         if os.path.exists(sample_images_path):
                             st.image(sample_images_path, caption="Sample Dataset Images")
 
@@ -194,11 +216,13 @@ def main():
                         st.info("Download the trained CV model and label mapping.")
                         col1, col2 = st.columns(2)
                         with col1:
-                            st_download_file("src/models/best_cv_model.pth", "CV Model (.pth)", "best_cv_model.pth")
+                            st_download_file(os.path.join(MODEL_DIR, "best_cv_model.pth"), "CV Model (.pth)", "best_cv_model.pth")
                         with col2:
-                            st_download_file("src/models/cv_label_map.pkl", "Label Map (.pkl)", "cv_label_map.pkl")
+                            st_download_file(os.path.join(MODEL_DIR, "cv_label_map.pkl"), "Label Map (.pkl)", "cv_label_map.pkl")
+
                 except Exception as e:
-                    st.error(f"An error occurred: {e}")
+                    st.error("CV AutoML Failed!")
+                    st.exception(e)
         elif dir_path:
             st.error("Invalid directory path.")
 

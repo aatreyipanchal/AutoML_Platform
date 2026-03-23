@@ -12,17 +12,24 @@ class AutoMLPipeline:
     """
     The orchestrator that runs the entire AutoML flow.
     """
-    def __init__(self, data_path: str, target_col: str = None, task_type: str = "tabular", sub_task: str = "classification"):
+    def __init__(self, data_path: str, target_col: str = None, task_type: str = "tabular", sub_task: str = "classification", model_dir: str = "src/models", report_dir: str = "src/reports"):
         self.data_path = data_path
         self.target_col = target_col
         self.task_type = task_type
         self.sub_task = sub_task
+        self.model_dir = os.path.abspath(model_dir)
+        self.report_dir = os.path.abspath(report_dir)
+        
+        if not os.path.exists(self.model_dir):
+            os.makedirs(self.model_dir)
+        if not os.path.exists(self.report_dir):
+            os.makedirs(self.report_dir)
         
         self.loader = DataLoader()
-        self.eda = EDAEngine()
+        self.eda = EDAEngine(report_dir=self.report_dir)
         self.preprocessor = PreprocessingEngine()
         self.selector = ModelSelector(task_type=task_type, sub_task=sub_task)
-        self.trainer = Trainer()
+        self.trainer = Trainer(model_dir=self.model_dir)
 
     def run(self):
         print(f"Starting AutoML Pipeline for {self.task_type} task...")
@@ -45,7 +52,7 @@ class AutoMLPipeline:
             
             # 6. Save Preprocessor State for later inference
             if self.preprocessor.column_transformer:
-                joblib.dump(self.preprocessor.column_transformer, os.path.join("src/models", "preprocessor.pkl"))
+                joblib.dump(self.preprocessor.column_transformer, os.path.join(self.model_dir, "preprocessor.pkl"))
             
             print("AutoML Pipeline Finished Successfully!")
             return best_model, results
@@ -70,7 +77,7 @@ class AutoMLPipeline:
             best_model = self.trainer.train_cv(model, X, y, epochs=5)
             
             # 6. Save label map for later inference
-            joblib.dump(label_map, os.path.join("src/models", "cv_label_map.pkl"))
+            joblib.dump(label_map, os.path.join(self.model_dir, "cv_label_map.pkl"))
             
             print("CV Pipeline Finished Successfully!")
             return best_model, {"status": "completed", "num_classes": num_classes}
